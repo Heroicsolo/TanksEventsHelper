@@ -1,0 +1,9 @@
+## Interface: 80300
+## Title: TanksEventsHelper
+## Notes: Checks Warden and Anima essences, Twilight Devastation and Echoing Void of all tanks in yout raid
+## Author: Heroicsolo
+## Version: 1.0.1
+
+libs\lib.xml
+
+main.lua
