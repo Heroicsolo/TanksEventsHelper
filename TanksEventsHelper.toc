@@ -2,7 +2,7 @@
 ## Title: TanksEventsHelper
 ## Notes: Checks Warden and Anima essences, Twilight Devastation and Echoing Void of all tanks in yout raid
 ## Author: Heroicsolo
-## Version: 1.0.1
+## Version: 1.0.2
 
 libs\lib.xml
 

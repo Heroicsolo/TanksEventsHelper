@@ -136,10 +136,17 @@ end
 function f:ADDON_LOADED(event, addon)
 	if addon == addonName then
 		Print('Loaded')
+		f:RegisterEvent("READY_CHECK")
 	end
 end
 
+function f:READY_CHECK(starter, timer)
+	CheckTanks()
+end
+
 function CheckTanks()
+	Print("Checking tanks...")
+
 	local n = GetNumGroupMembers() or 0
 
 	local inRaid = IsInRaid()
@@ -148,6 +155,7 @@ function CheckTanks()
 	local withoutWardenEssence = {}
 	local withoutAnimaEssence = {}
 	local withoutBothEssences = {}
+	local outOfRange = {}
 
 	if n < 1 then
 		local wardenFound, animaFound = CheckTankEssences('player')
@@ -171,15 +179,19 @@ function CheckTanks()
 				unit = "raid"..i
 			end
 
-			if online and UnitGroupRolesAssigned(unit) == "TANK" and CheckInteractDistance(unit, 1) then
-				local wardenFound, animaFound = CheckTankEssences(unit)
-				if not wardenFound then withoutWardenEssence[#withoutWardenEssence + 1] = name end
-				if not animaFound then withoutAnimaEssence[#withoutAnimaEssence + 1] = name end
-				if not animaFound and not wardenFound then withoutBothEssences[#withoutBothEssences + 1] = name end
-				if i > 1 then
-					SendInspect(unit)
+			if UnitGroupRolesAssigned(unit) == "TANK" then
+				if not CheckInteractDistance(unit, 1) or not online then
+					outOfRange[#outOfRange + 1] = name
 				else
-					CheckTankCorruption(name)
+					local wardenFound, animaFound = CheckTankEssences(unit)
+					if not wardenFound then withoutWardenEssence[#withoutWardenEssence + 1] = name end
+					if not animaFound then withoutAnimaEssence[#withoutAnimaEssence + 1] = name end
+					if not animaFound and not wardenFound then withoutBothEssences[#withoutBothEssences + 1] = name end
+					if i > 1 then
+						SendInspect(unit)
+					else
+						CheckTankCorruption(name)
+					end
 				end
 			end
 		end
@@ -233,6 +245,26 @@ function CheckTanks()
 				msg = msg..", "..withoutBothEssences[i]
 			else
 				msg = msg..withoutBothEssences[i]
+			end
+		end
+		
+		if inRaid then
+			SendChatMessage(msg, string.upper("raid"))
+		elseif inGroup then
+			SendChatMessage(msg, string.upper("party"))
+		else
+			Print(msg)
+		end
+	end
+	
+	msg = "OUT OF RANGE: "
+	
+	if #outOfRange > 0 then
+		for i=1,#outOfRange do
+			if i > 1 then
+				msg = msg..", "..outOfRange[i]
+			else
+				msg = msg..outOfRange[i]
 			end
 		end
 		
@@ -365,7 +397,6 @@ SLASH_TANKSEVENTSHELPER1 = "/tanks"
 
 local SlashHandlers = {
 	["check"] = function()
-		Print("Checking tanks...")
 		CheckTanks()
 	end,
 	["help"] = function()
