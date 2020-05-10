@@ -170,7 +170,7 @@ function CheckTanks()
 			
 			online = true
 			
-			if not inRaid or i <= 5 then
+			if not inRaid and i <= 5 then
 				unit = i == 1 and 'player' or 'party'..(i-1)
 				name = UnitName(unit)
 				subgroup = 1
@@ -287,7 +287,7 @@ function CheckTankEssences(unit)
 	local wardenFound = false
 	local animaFound = false
 
-	for i=1,40 do
+	for i=1,50 do
 		local buffName, _, _, _, _, _, unitCaster, _, _, spellId = UnitAura(name, i, "HELPFUL")
 		
 		if not spellId then
