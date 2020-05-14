@@ -198,7 +198,7 @@ function CheckTanks()
 					if not wardenFound then withoutWardenEssence[#withoutWardenEssence + 1] = name end
 					if not animaFound then withoutAnimaEssence[#withoutAnimaEssence + 1] = name end
 					if not animaFound and not wardenFound then withoutBothEssences[#withoutBothEssences + 1] = name end
-					if i > 1 then
+					if unit ~= 'player' then
 						SendInspect(unit)
 					else
 						CheckTankCorruption(name)
@@ -281,20 +281,22 @@ function CheckTankEssences(unit, name)
 	for i=1,50 do
 		local buffName, _, _, _, _, _, unitCaster, _, _, spellId = UnitAura(name, i, "HELPFUL")
 		
-		local casterGUID = UnitGUID(unitCaster)
-		
-		if not spellId then
-			break
-		else
-			if spellId == 312107 and casterGUID == unitGUID then
-				wardenFound = true
-				neededEssencesCount = neededEssencesCount + 1
-			elseif spellId == 294966 and casterGUID == unitGUID then
-				animaFound = true
-				neededEssencesCount = neededEssencesCount + 1
-			end
+		if unitCaster then
+			local casterGUID = UnitGUID(unitCaster)
 
-			if neededEssencesCount >= 2 then break end
+			if not spellId then
+				break
+			else
+				if spellId == 312107 and casterGUID == unitGUID then
+					wardenFound = true
+					neededEssencesCount = neededEssencesCount + 1
+				elseif spellId == 294966 and casterGUID == unitGUID then
+					animaFound = true
+					neededEssencesCount = neededEssencesCount + 1
+				end
+
+				if neededEssencesCount >= 2 then break end
+			end
 		end
 	end
 	
