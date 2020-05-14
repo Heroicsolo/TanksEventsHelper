@@ -74,7 +74,8 @@ hooksecurefunc("NotifyInspect", function(unit)
     LibEvent:trigger("UNIT_INSPECT_STARTED", data)
 end)
 
-function GetInspecting()
+function GetInspecting(unit)
+	if (unit and guids[UnitGUID(unit)]) then return true end
     if (inspecting and inspecting.expired > time()) then
         return inspecting
     end
@@ -123,7 +124,7 @@ end)
 
 -- @trigger RAID_INSPECT_STARTED
 function SendInspect(unit)
-    if (GetInspecting()) then return end
+    if (GetInspecting(unit)) then return end
     if (unit and UnitIsVisible(unit) and CanInspect(unit)) then
         ClearInspectPlayer()
 		inspectByAddon = true
@@ -144,8 +145,18 @@ function f:READY_CHECK(starter, timer)
 	CheckTanks()
 end
 
+function PrintResultsToChat(msg)
+	if IsInRaid() then
+		SendChatMessage(msg, string.upper("raid"))
+	elseif IsInGroup() then
+		SendChatMessage(msg, string.upper("party"))
+	else
+		Print(msg)
+	end
+end
+
 function CheckTanks()
-	Print("Checking tanks...")
+	PrintResultsToChat("["..addonName.."]: Checking tanks...")
 
 	local n = GetNumGroupMembers() or 0
 
@@ -158,8 +169,8 @@ function CheckTanks()
 	local outOfRange = {}
 
 	if n < 1 then
-		local wardenFound, animaFound = CheckTankEssences('player')
 		local playerName = UnitName('player')
+		local wardenFound, animaFound = CheckTankEssences('player', playerName)
 		if not wardenFound then withoutWardenEssence[#withoutWardenEssence + 1] = playerName end
 		if not animaFound then withoutAnimaEssence[#withoutAnimaEssence + 1] = playerName end
 		if not animaFound and not wardenFound then withoutBothEssences[#withoutBothEssences + 1] = playerName end
@@ -180,10 +191,10 @@ function CheckTanks()
 			end
 
 			if UnitGroupRolesAssigned(unit) == "TANK" then
-				if not CheckInteractDistance(unit, 1) or not online then
+				if not CheckInteractDistance(unit, 1) or not online or not CanInspect(unit) then
 					outOfRange[#outOfRange + 1] = name
 				else
-					local wardenFound, animaFound = CheckTankEssences(unit)
+					local wardenFound, animaFound = CheckTankEssences(unit, name)
 					if not wardenFound then withoutWardenEssence[#withoutWardenEssence + 1] = name end
 					if not animaFound then withoutAnimaEssence[#withoutAnimaEssence + 1] = name end
 					if not animaFound and not wardenFound then withoutBothEssences[#withoutBothEssences + 1] = name end
@@ -197,6 +208,11 @@ function CheckTanks()
 		end
 	end
 	
+	if #withoutWardenEssence == 0 and #withoutAnimaEssence == 0 then
+		PrintResultsToChat("["..addonName.."]: ALL ESSENCES ARE OK")
+		return
+	end
+	
 	local msg = "WITHOUT WARDEN ESSENCE RANK 3: "
 	
 	if #withoutWardenEssence > 0 then
@@ -208,13 +224,7 @@ function CheckTanks()
 			end
 		end
 		
-		if inRaid then
-			SendChatMessage(msg, string.upper("raid"))
-		elseif inGroup then
-			SendChatMessage(msg, string.upper("party"))
-		else
-			Print(msg)
-		end
+		PrintResultsToChat(msg)
 	end
 	
 	msg = "WITHOUT ANIMA ESSENCE: "
@@ -228,13 +238,7 @@ function CheckTanks()
 			end
 		end
 		
-		if inRaid then
-			SendChatMessage(msg, string.upper("raid"))
-		elseif inGroup then
-			SendChatMessage(msg, string.upper("party"))
-		else
-			Print(msg)
-		end
+		PrintResultsToChat(msg)
 	end
 	
 	msg = "WITHOUT BOTH ESSENCES: "
@@ -248,13 +252,7 @@ function CheckTanks()
 			end
 		end
 		
-		if inRaid then
-			SendChatMessage(msg, string.upper("raid"))
-		elseif inGroup then
-			SendChatMessage(msg, string.upper("party"))
-		else
-			Print(msg)
-		end
+		PrintResultsToChat(msg)
 	end
 	
 	msg = "OUT OF RANGE: "
@@ -268,37 +266,30 @@ function CheckTanks()
 			end
 		end
 		
-		if inRaid then
-			SendChatMessage(msg, string.upper("raid"))
-		elseif inGroup then
-			SendChatMessage(msg, string.upper("party"))
-		else
-			Print(msg)
-		end
+		PrintResultsToChat(msg)
 	end
 end
 
-function CheckTankEssences(unit)
-	local name = UnitName(unit)
-	local wardenRank3Found = "NO"
-	local animaEssenceFound = "NO"
+function CheckTankEssences(unit, name)
 	local neededEssencesCount = 0
 
 	local wardenFound = false
 	local animaFound = false
 
+	local unitGUID = UnitGUID(unit)
+
 	for i=1,50 do
 		local buffName, _, _, _, _, _, unitCaster, _, _, spellId = UnitAura(name, i, "HELPFUL")
+		
+		local casterGUID = UnitGUID(unitCaster)
 		
 		if not spellId then
 			break
 		else
-			if spellId == 312107 and unitCaster == unit then
-				wardenRank3Found = "YES"
+			if spellId == 312107 and casterGUID == unitGUID then
 				wardenFound = true
 				neededEssencesCount = neededEssencesCount + 1
-			elseif spellId == 294966 and unitCaster == unit then
-				animaEssenceFound = "YES"
+			elseif spellId == 294966 and casterGUID == unitGUID then
 				animaFound = true
 				neededEssencesCount = neededEssencesCount + 1
 			end
@@ -306,16 +297,6 @@ function CheckTankEssences(unit)
 			if neededEssencesCount >= 2 then break end
 		end
 	end
-	
-	--local msg = name..' has Warden Essence Rank 3: '..wardenRank3Found..', has Anima Essence: '..animaEssenceFound
-	
-	--if IsInRaid(unit) then
-		--SendChatMessage(msg, string.upper("raid"))
-	--elseif IsInGroup(unit) then
-		--SendChatMessage(msg, string.upper("party"))
-	--else
-		--Print(msg)
-	--end
 	
 	return wardenFound, animaFound
 end
@@ -345,15 +326,7 @@ function CheckTankCorruption(name)
 		end
 	end
 	
-	local msg = name..' has '..summaryTD..'% devastation, '..summaryEchoingVoid..'% echoing void'
-	
-	if IsInRaid(unit) then
-		SendChatMessage(msg, string.upper("raid"))
-	elseif IsInGroup(unit) then
-		SendChatMessage(msg, string.upper("party"))
-	else
-		Print(msg)
-	end
+	PrintResultsToChat(name..' has '..summaryTD..'% devastation, '..summaryEchoingVoid..'% echoing void')
 end
 
 function GetItemSplit(itemLink)
@@ -386,8 +359,6 @@ function GetCharacterCorruptions(name)
             end
         end
     end
-
-	ClearInspectPlayer()
 
     return corruptions
 end
